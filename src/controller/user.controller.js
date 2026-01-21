@@ -17,6 +17,9 @@ const signup= async(req, res)=>{
             return res.status(400).json({message:'user already exist'})
         }
 
+
+        
+
         const hashpass= await bcrypt.hash(password,10)
         const otp= Math.floor(100000 + Math.random() * 900000).toString();
         const otpExpiry2= new Date(Date.now() +3 *60 *1000);
@@ -192,12 +195,16 @@ const apply= async(req,res)=>{
         if(!name || !email || !amount){
             return res.status(400).json({message:"input the fields"})
         }
-        const existingEmail= User.findOne({email})
-        if(existingEmail){
-            return res.status(400).json({message:"user already exist"})
+        //const existingEmail= User.findOne({email})
+        // if(existingEmail){
+        //     return res.status(400).json({message:"user already exist"})
+        // }
+
+        if (!req.file) {
+            return res.status(400).json({ message: 'Product image is required' });
         }
 
-        const newuser= new User({name,email,amount})
+        const newuser= new User({name,email,  image: req.file.path ,amount})
         
         await newuser.save()
         return res.status(200).json({message:"applied successfully"})
