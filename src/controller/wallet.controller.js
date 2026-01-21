@@ -296,104 +296,192 @@ const CreateRedirectUrl = async(req,res)=>{
      }
 }
 
-const flutterwaveWebhook = async(req, res)=>{
-  try{
-     // verify webhook signature
-     const secretHash= process.env.FLW_SECRET_HASH
-     const signature= req.headers["verif-hash"]
+// const flutterwaveWebhook = async(req, res)=>{
+//   try{
+//      // verify webhook signature
+//      const secretHash= process.env.FLW_SECRET_HASH
+//      const signature= req.headers["verif-hash"]
 
-     if(!signature || signature !== secretHash){
-      return res.status(400).json({message:'invalid webhook signature', result:'unauthorized'})
+//      if(!signature || signature !== secretHash){
+//       return res.status(400).json({message:'invalid webhook signature', result:'unauthorized'})
 
-     }
+//      }
 
-     const payload = req.body
+//      const payload = req.body
 
-     console.log("Flutterwave Webhook Payload:", payload)
+//      console.log("Flutterwave Webhook Payload:", payload)
 
-     // check if payment was successful
+//      // check if payment was successful
 
-     if (payload.data.status === "successful" && payload.event==="charge.completed"){
-      const {tx_ref, amount, currency, id: transactionId} = payload.data
+//      if (payload.data.status === "successful" && payload.event==="charge.completed"){
+//       const {tx_ref, amount, currency, id: transactionId} = payload.data
      
 
-     // verify the transaction with flutterwave
-     const verifyResponse= await axios.get(
-      `https://api.flutterwave.com/v3/transactions/${transactionId}/verify`,
-      {
-        headers:{
-          Authorization: `Bearer ${process.env.FLW_SECRET_KEY}`
-        }
-      }
-     )
+//      // verify the transaction with flutterwave
+//      const verifyResponse= await axios.get(
+//       `https://api.flutterwave.com/v3/transactions/${transactionId}/verify`,
+//       {
+//         headers:{
+//           Authorization: `Bearer ${process.env.FLW_SECRET_KEY}`
+//         }
+//       }
+//      )
 
-     console.log('Flutterwave verify responcse:', verifyResponse.data)
+//      console.log('Flutterwave verify responcse:', verifyResponse.data)
 
-     const verifyData = verifyResponse.data
+//      const verifyData = verifyResponse.data
 
-     if(
-      verifyData.status==="success" &&
-      verifyData.data.status ==="successful" &&
-      verifyData.data.amount=== amount &&
-      verifyData.data.currency ===currency
-     ){
-      // Extract userId from tx_ref (format: TX-timestamp-userId)
-      const txParts= tx_ref.split('-')
-      const userId = txParts[txParts.length -1]
+//      if(
+//       verifyData.status==="success" &&
+//       verifyData.data.status ==="successful" &&
+//       verifyData.data.amount=== amount &&
+//       verifyData.data.currency ===currency
+//      ){
+//       // Extract userId from tx_ref (format: TX-timestamp-userId)
+//       const txParts= tx_ref.split('-')
+//       const userId = txParts[txParts.length -1]
 
     
 
-     // find the transaction record
+//      // find the transaction record
 
-     const transactionRecord = await Transaction.findOne({refNo:tx_ref})
-     console.log("User transaction record found:", transactionRecord)
+//      const transactionRecord = await Transaction.findOne({refNo:tx_ref})
+//      console.log("User transaction record found:", transactionRecord)
 
-     // find the Wallet
+//      // find the Wallet
 
-     const wallet= await Wallet.findOne({_id:transactionRecord.walletId})
-     console.log("User wallet found:", wallet)
+//      const wallet= await Wallet.findOne({_id:transactionRecord.walletId})
+//      console.log("User wallet found:", wallet)
 
-     if(wallet){
-      await Wallet.findOneAndUpdate(
-      {_id:transactionRecord.walletId},
-      {$inc:{balance:amount}},
-      {new:true}
-      )
-        // Get user for email notification
-          const user = await User.findById(transactionRecord.userId);
-          console.log("User Found for Email Notification:", user);
-          if (user) {
-          // Send success email (optional)
-          console.log(`Wallet funded successfully for user: ${user.email}, Amount: ${amount} ${currency}`);
+//      if(wallet){
+//       await Wallet.findOneAndUpdate(
+//       {_id:transactionRecord.walletId},
+//       {$inc:{balance:amount}},
+//       {new:true}
+//       )
+//         // Get user for email notification
+//           const user = await User.findById(transactionRecord.userId);
+//           console.log("User Found for Email Notification:", user);
+//           if (user) {
+//           // Send success email (optional)
+//           console.log(`Wallet funded successfully for user: ${user.email}, Amount: ${amount} ${currency}`);
+//         }
+//       // Update the transaction status to successful
+//       await Transaction.findOneAndUpdate(
+//         { refNo: tx_ref },
+//         { status: "successful" },
+//         { new: true }
+//       );
+
+//       return res.status(200).json({ message: "Wallet funded successfully" });
+//      }else {
+//           console.error("Wallet not found for userId:", userId);
+//           return res.status(404).json({ message: "Wallet not found" });
+//         }
+
+//  }else {
+//         console.error("Transaction verification failed", verifyData);
+//         return res.status(400).json({ message: "Transaction verification failed" });
+//       }
+
+// }
+//     // For other events, just acknowledge receipt
+//     return res.status(200).json({ message: "Webhook received" });
+
+//   }catch(e){
+//         console.error("Webhook error:", e);
+//     return res.status(500).json({ message: "Webhook processing failed- server error" });
+
+//   }
+// }
+
+const flutterwaveWebhook = async (req, res) => {
+  try {
+    const secretHash = process.env.FLW_SECRET_HASH;
+    const signature = req.headers["verif-hash"];
+
+    // Verify webhook signature
+    if (!signature || signature !== secretHash) {
+      return res.status(401).json({ message: "Invalid webhook signature" });
+    }
+
+    const payload = req.body;
+    console.log("Flutterwave Webhook Payload:", payload);
+
+    // Only process successful charge events
+    if (
+      payload.event === "charge.completed" &&
+      payload.data.status === "successful"
+    ) {
+      const { tx_ref, amount, currency, id: transactionId } = payload.data;
+
+      // Verify transaction with Flutterwave
+      const verifyResponse = await axios.get(
+        `https://api.flutterwave.com/v3/transactions/${transactionId}/verify`,
+        {
+          headers: {
+            Authorization: `Bearer ${process.env.FLW_SECRET_KEY}`,
+          },
         }
-      // Update the transaction status to successful
-      await Transaction.findOneAndUpdate(
-        { refNo: tx_ref },
-        { status: "successful" },
-        { new: true }
       );
 
-      return res.status(200).json({ message: "Wallet funded successfully" });
-     }else {
-          console.error("Wallet not found for userId:", userId);
+      const verifyData = verifyResponse.data;
+      console.log("Flutterwave verify response:", verifyData);
+
+      if (
+        verifyData.status === "success" &&
+        verifyData.data.status === "successful" &&
+        verifyData.data.amount === amount &&
+        verifyData.data.currency === currency
+      ) {
+        const transactionRecord = await Transaction.findOne({ refNo: tx_ref });
+
+        if (!transactionRecord) {
+          return res.status(404).json({ message: "Transaction record not found" });
+        }
+
+        // Prevent duplicate funding
+        if (transactionRecord.status !== "pending") {
+          return res.status(200).json({ message: "Transaction already processed" });
+        }
+
+        const wallet = await Wallet.findById(transactionRecord.walletId);
+
+        if (!wallet) {
           return res.status(404).json({ message: "Wallet not found" });
         }
 
- }else {
-        console.error("Transaction verification failed", verifyData);
-        return res.status(400).json({ message: "Transaction verification failed" });
+        // Credit wallet
+        await Wallet.findByIdAndUpdate(
+          wallet._id,
+          { $inc: { balance: amount } },
+          { new: true }
+        );
+
+        // Update transaction status
+        await Transaction.findOneAndUpdate(
+          { refNo: tx_ref },
+          { status: "successful" }
+        );
+
+        console.log(`Wallet funded: ${amount} ${currency}`);
+
+        return res.status(200).json({ message: "Wallet funded successfully" });
       }
 
-}
-    // For other events, just acknowledge receipt
+      console.error("Transaction verification failed");
+      return res.status(400).json({ message: "Verification failed" });
+    }
+
+    // Acknowledge other events
     return res.status(200).json({ message: "Webhook received" });
 
-  }catch(e){
-        console.error("Webhook error:", e);
-    return res.status(500).json({ message: "Webhook processing failed- server error" });
-
+  } catch (error) {
+    console.error("Webhook error:", error);
+    return res.status(500).json({ message: "Server error" });
   }
-}
+};
+
 
 
 

@@ -15,6 +15,7 @@ app.set('view engine', 'ejs')
 
 // Middleware
 app.use(express.json())
+app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'))
 
 // Declaring the Database
