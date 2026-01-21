@@ -25,7 +25,8 @@ app.get('/',(req, res)=>{
     const blogs=[
         {title:'The Naija', snippet:'There was a country be now'},
         {title:'The Ghana', snippet:'There was a Ghana be now'},
-        {title:'The TOgo', snippet:'There was a Togo be now'}
+        {title:'The TOgo', snippet:'There was a Togo be now'},
+        {title:'The new one', snippet:'There was a new be now'}
 
     ]
 
