@@ -302,7 +302,7 @@ const flutterwaveWebhook = async(req, res)=>{
      const secretHash= process.env.FLW_SECRET_HASH
      const signature= req.headers["verif-hash"]
 
-     if(!secretHash || secretHash !==signature){
+     if(!signature || signature !== secretHash){
       return res.status(400).json({message:'invalid webhook signature', result:'unauthorized'})
 
      }
@@ -313,7 +313,7 @@ const flutterwaveWebhook = async(req, res)=>{
 
      // check if payment was successful
 
-     if (payload.data.status === "successful" && payload.event===charge.completed){
+     if (payload.data.status === "successful" && payload.event==="charge.completed"){
       const {tx_ref, amount, currency, id: transactionId} = payload.data
      
 
