@@ -20,6 +20,9 @@ app.use(morgan('dev'))
 // Declaring the Database
 dbConnect()
 
+app.use('/loan',router )
+app.use('/wallet',walletRoute )
+
 app.get('/',(req, res)=>{
 
     const blogs=[
@@ -46,8 +49,7 @@ app.get('/create/new',(req, res)=>{
 
 
 
-app.use('/loan',router )
-app.use('/wallet',walletRoute )
+
 
 app.listen(Port, ()=>{
     console.log('The server is running')
